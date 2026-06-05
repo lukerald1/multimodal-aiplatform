@@ -175,4 +175,43 @@
     </script>
 </body>
 </html>
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    
+    document.getElementById('today-date').innerText = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+
+    fetch('http://localhost:8000/api/analytics', {
+        headers: {
+            'tg-init-data': tg.initData
+        }
+    })
+    .then(response => response.json())
+    .then(realData => {
+        
+        document.getElementById('balance-text').innerText = '₽ ' + realData.balance;
+        document.getElementById('tokens-text').innerText = realData.tokens_24h;
+        document.getElementById('roi-text').innerText = '~' + realData.roi_hours + ' часов';
+
+        
+        const ctxLine = document.getElementById('costChart').getContext('2d');
+        new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+                datasets: [{
+                    data: realData.cost_chart_data, // Данные из Python!
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: { plugins: { legend: { display: false } } }
+        });
+    })
+    .catch(err => {
+        console.error("Ошибка получения реальных данных:", err);
+    });
+</script>
 ```
