@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Selector Analytics</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #172033;
+      --muted: #687386;
+      --line: #e2e6ee;
+      --blue: #2f6fed;
+      --green: #1b9a59;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .app {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 18px 14px 28px;
+    }
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+    .muted { color: var(--muted); }
+    .badge {
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+    .metric span, .panel-title {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .sections {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .panel-title {
+      margin-bottom: 12px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 92px 1fr 70px;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 0;
+      font-size: 13px;
+    }
+    .bar {
+      height: 10px;
+      border-radius: 999px;
+      background: #e8ecf4;
+      overflow: hidden;
+    }
+    .bar i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue);
+    }
+    .history {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .history li {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfe;
+      font-size: 14px;
+    }
+    .roi { color: var(--green); }
+    @media (max-width: 720px) {
+      .grid, .sections { grid-template-columns: 1fr 1fr; }
+      .wide { grid-column: 1 / -1; }
+      h1 { font-size: 21px; }
+    }
+    @media (max-width: 460px) {
+      .grid, .sections { grid-template-columns: 1fr; }
+      header { display: block; }
+      .badge { display: inline-block; margin-top: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>AI Selector Analytics</h1>
+        <div class="muted">Демо-кабинет затрат, тестов и эффекта внедрения</div>
+      </div>
+      <div class="badge">Telegram Mini App</div>
+    </header>
+
+    <section class="grid" id="metrics"></section>
+
+    <section class="sections">
+      <div class="panel wide">
+        <div class="panel-title">Использованные нейросети</div>
+        <div id="models"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">История песочницы</div>
+        <ul class="history" id="history"></ul>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    tg?.ready();
+    tg?.expand();
+
+    const fmtRub = new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 });
+    const fmt = new Intl.NumberFormat("ru-RU");
+
+    function createDemoStats(userId) {
+      const seed = Number(String(userId).slice(-3)) || 137;
+      return {
+        balanceRub: 4200 + (seed % 9) * 350,
+        topUpsRub: 15000 + (seed % 7) * 1000,
+        tokensUsed: 184000 + (seed % 11) * 6400,
+        estimatedSavingsRub: 38000 + (seed % 13) * 2500,
+        roi: 2.8 + ((seed % 8) / 10),
+        testsRun: 17 + (seed % 6),
+        modelsUsed: [
+          { title: "GigaChat", tokens: 64000, costRub: 980 },
+          { title: "Qwen VL", tokens: 48000, costRub: 760 },
+          { title: "DeepSeek", tokens: 72000, costRub: 530 }
+        ],
+        history: [
+          "Подбор модели для клиентской поддержки",
+          "Тест описания товаров по фото",
+          "Расчет стоимости внедрения чат-бота",
+          "Генерация промптов для маркетинга"
+        ]
+      };
+    }
+
+    async function getStats(userId) {
+      try {
+        const apiUrl = new URL("../api/stats", window.location.href);
+        apiUrl.searchParams.set("userId", userId);
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error("Stats API unavailable");
+        return await response.json();
+      } catch {
+        return createDemoStats(userId);
+      }
+    }
+
+    async function load() {
+      const userId = tg?.initDataUnsafe?.user?.id || 137;
+      const data = await getStats(userId);
+
+      document.getElementById("metrics").innerHTML = [
+        ["Баланс", fmtRub.format(data.balanceRub), ""],
+        ["Пополнения", fmtRub.format(data.topUpsRub), ""],
+        ["Токены", fmt.format(data.tokensUsed), ""],
+        ["ROI", data.roi.toFixed(1) + "x", "roi"],
+        ["Экономия", fmtRub.format(data.estimatedSavingsRub), ""],
+        ["Тесты", fmt.format(data.testsRun), ""]
+      ].map(([label, value, cls]) =>
+        '<article class="metric"><span>' + label + '</span><strong class="' + cls + '">' + value + '</strong></article>'
+      ).join("");
+
+      const maxTokens = Math.max(...data.modelsUsed.map((item) => item.tokens));
+      document.getElementById("models").innerHTML = data.modelsUsed.map((item) => {
+        const width = Math.round(item.tokens / maxTokens * 100);
+        return '<div class="bar-row"><b>' + item.title + '</b><div class="bar"><i style="width:' + width + '%"></i></div><span>' + fmtRub.format(item.costRub) + '</span></div>';
+      }).join("");
+
+      document.getElementById("history").innerHTML = data.history.map((item) => '<li>' + item + '</li>').join("");
+    }
+
+    load();
+  </script>
+</body>
+</html>
